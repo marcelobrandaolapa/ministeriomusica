@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Escala do Ministério da Música - Paróquia Nossa Senhora do Perpétuo Socorro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+        .container {
+            max-width: 1200px;
+        }
+        table {
+            border-collapse: separate;
+            border-spacing: 0;
+        }
+        th, td {
+            border: 1px solid #e5e7eb;
+            padding: 0.75rem;
+            text-align: center;
+            vertical-align: top;
+            position: relative;
+        }
+        th {
+            background-color: #e5e7eb;
+            font-weight: 600;
+        }
+        td.empty {
+            background-color: #f9fafb;
+            color: #d1d5db;
+        }
+        .day-cell {
+            background-color: #ffffff;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .day-cell:hover {
+            background-color: #f3f4f6;
+        }
+        .mass-time {
+            font-size: 0.75rem;
+            color: #6b7280;
+            margin-bottom: 0.25rem;
+            font-weight: 600;
+        }
+        .group-name {
+            font-size: 0.875rem;
+            font-weight: 700;
+            color: #1f2937;
+        }
+        .modal-overlay {
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+        .modal-content {
+            background-color: #ffffff;
+            border-radius: 0.75rem;
+            padding: 2rem;
+            max-width: 400px;
+        }
+        .group-button {
+            transition: background-color 0.2s;
+        }
+        .group-button:hover {
+            background-color: #d1d5db;
+        }
+        .loading-overlay {
+            background-color: rgba(255, 255, 255, 0.8);
+        }
+    </style>
+</head>
+<body class="bg-gray-100 p-4 min-h-screen flex flex-col items-center">
+
+    <!-- Main Container -->
+    <div class="container mx-auto p-6 bg-white rounded-lg shadow-xl mt-8">
+
+        <!-- Header -->
+        <header class="text-center mb-8">
+            <h1 class="text-3xl font-bold text-gray-800">Escala do Ministério da Música</h1>
+            <h2 class="text-xl font-medium text-gray-600 mt-1">Paróquia Nossa Senhora do Perpétuo Socorro</h2>
+        </header>
+
+        <!-- Loading Spinner -->
+        <div id="loading-overlay" class="loading-overlay fixed inset-0 z-50 flex items-center justify-center hidden">
+            <div class="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-500"></div>
+        </div>
+
+        <!-- Month & Year Selector -->
+        <div class="flex flex-col sm:flex-row justify-center items-center mb-6 space-y-4 sm:space-y-0 sm:space-x-4">
+            <div class="flex items-center space-x-2">
+                <label for="month" class="text-gray-700 font-medium">Mês:</label>
+                <select id="month" class="p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="0">Janeiro</option>
+                    <option value="1">Fevereiro</option>
+                    <option value="2">Março</option>
+                    <option value="3">Abril</option>
+                    <option value="4">Maio</option>
+                    <option value="5">Junho</option>
+                    <option value="6">Julho</option>
+                    <option value="7">Agosto</option>
+                    <option value="8">Setembro</option>
+                    <option value="9">Outubro</option>
+                    <option value="10">Novembro</option>
+                    <option value="11">Dezembro</option>
+                </select>
+            </div>
+            <div class="flex items-center space-x-2">
+                <label for="year" class="text-gray-700 font-medium">Ano:</label>
+                <select id="year" class="p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"></select>
+            </div>
+            <button id="generateBtn" class="bg-blue-600 text-white font-semibold py-2 px-6 rounded-md shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">Gerar Escala</button>
+            <button id="manageGroupsBtn" class="bg-gray-600 text-white font-semibold py-2 px-6 rounded-md shadow-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2">Gerenciar Grupos</button>
+        </div>
+
+        <!-- View Mode Controls -->
+        <div class="flex flex-wrap justify-center items-center mb-6 space-x-2">
+            <button id="monthlyViewBtn" class="bg-blue-500 text-white font-semibold py-2 px-4 rounded-md shadow-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">Visualização Mensal</button>
+            <button id="weeklyViewBtn" class="bg-gray-400 text-white font-semibold py-2 px-4 rounded-md shadow-md hover:bg-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2">Visualização Semanal</button>
+            <button id="exportPdfBtn" class="bg-green-600 text-white font-semibold py-2 px-4 rounded-md shadow-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-600 focus:ring-offset-2">Exportar/Imprimir PDF</button>
+        </div>
+        
+        <!-- Weekly Navigation -->
+        <div id="weeklyNavigation" class="flex justify-center items-center mb-4 space-x-4 hidden">
+            <button id="prevWeekBtn" class="bg-gray-300 text-gray-700 font-semibold py-1 px-3 rounded-md hover:bg-gray-400 focus:outline-none">Semana Anterior</button>
+            <span id="currentWeekDisplay" class="font-semibold text-gray-800"></span>
+            <button id="nextWeekBtn" class="bg-gray-300 text-gray-700 font-semibold py-1 px-3 rounded-md hover:bg-gray-400 focus:outline-none">Próxima Semana</button>
+        </div>
+
+        <!-- Schedule Table -->
+        <div id="scheduleContainer" class="overflow-x-auto">
+            <table id="scheduleTable" class="w-full text-sm rounded-lg overflow-hidden shadow-md">
+                <thead>
+                    <tr class="bg-gray-200 text-gray-700">
+                        <th class="p-3">Domingo</th>
+                        <th class="p-3">Segunda</th>
+                        <th class="p-3">Terça</th>
+                        <th class="p-3">Quarta</th>
+                        <th class="p-3">Quinta</th>
+                        <th class="p-3">Sexta</th>
+                        <th class="p-3">Sábado</th>
+                    </tr>
+                </thead>
+                <tbody id="scheduleBody">
+                    <!-- Schedule cells will be populated here by JavaScript -->
+                </tbody>
+            </table>
+        </div>
+
+        <p id="userIdDisplay" class="text-xs text-gray-500 text-center mt-6"></p>
+    </div>
+
+    <!-- Edit Modal -->
+    <div id="editModal" class="modal-overlay fixed inset-0 z-50 hidden flex items-center justify-center p-4">
+        <div class="modal-content relative w-full rounded-xl shadow-xl flex flex-col items-center">
+            <button id="closeModalBtn" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+            <h3 class="text-2xl font-bold mb-4 text-gray-800">Editar Grupo</h3>
+            <p class="mb-4 text-gray-600 text-center">Data: <span id="modalDate"></span></p>
+            <div id="groupsContainer" class="grid grid-cols-2 gap-2 w-full">
+                <!-- Group buttons will be populated here -->
+            </div>
+        </div>
+    </div>
+    
+    <!-- Group Management Modal -->
+    <div id="groupManagementModal" class="modal-overlay fixed inset-0 z-50 hidden flex items-center justify-center p-4">
+        <div class="modal-content relative w-full max-w-lg rounded-xl shadow-xl flex flex-col items-center max-h-screen overflow-y-auto">
+            <button id="closeGroupModalBtn" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+            <h3 class="text-2xl font-bold mb-4 text-gray-800">Gerenciar Grupos e Escala Fixa</h3>
+            
+            <!-- Group List Section -->
+            <div class="w-full mb-6">
+                <h4 class="text-xl font-semibold mb-2 text-gray-700">Lista de Grupos</h4>
+                <div class="flex space-x-2 mb-4">
+                    <input type="text" id="newGroupInput" class="flex-grow p-2 border rounded-md" placeholder="Nome do novo grupo">
+                    <button id="addGroupBtn" class="bg-green-600 text-white font-semibold px-4 py-2 rounded-md hover:bg-green-700">Adicionar</button>
+                </div>
+                <div id="groupList" class="space-y-2"></div>
+            </div>
+
+            <!-- Weekly Schedule Section -->
+            <div class="w-full">
+                <h4 class="text-xl font-semibold mb-2 text-gray-700">Escala Fixa Mensal</h4>
+                <div class="flex items-center space-x-2 mb-4">
+                    <label for="weekToEdit" class="text-gray-700 font-medium">Semana:</label>
+                    <select id="weekToEdit" class="p-2 border rounded-md flex-grow"></select>
+                </div>
+                <div id="scheduleEditContainer" class="space-y-4"></div>
+                <button id="saveFixedScheduleBtn" class="w-full bg-blue-600 text-white font-semibold py-2 rounded-md hover:bg-blue-700 mt-6">Salvar Escala Fixa</button>
+            </div>
+
+        </div>
+    </div>
+
+
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInWithCustomToken, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // IMPORTANT: The global variables __firebase_config, __app_id, and __initial_auth_token are provided by the environment.
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        const { jsPDF } = window.jspdf;
+
+        // Firestore and Auth setup
+        let app, db, auth;
+        let userId = 'anon'; // Default to 'anon' until authenticated
+        let unsubscribeMonth = null;
+        let unsubscribeConfig = null;
+
+        // Set Firestore log level for debugging
+        setLogLevel('debug');
+
+        let groups = [];
+        let fixedSchedule = {};
+        const massTimes = {
+            '1': ['8h', '19h'],
+            '2': ['8h', '19h'],
+            '3': ['8h', '17h', '19h'],
+            '4': ['8h', '17h', '19h'],
+            '5': ['8h', '19h'],
+            '6': ['8h', '18h'],
+            '0': ['8h', '10h', '12h', '17h', '19h', '21h'],
+        };
+        const weekdays = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+        const weekNames = ['1ª Semana', '2ª Semana', '3ª Semana', '4ª Semana', '5ª Semana'];
+
+        const loadingOverlay = document.getElementById('loading-overlay');
+        const scheduleBody = document.getElementById('scheduleBody');
+        const monthSelect = document.getElementById('month');
+        const yearSelect = document.getElementById('year');
+        const generateBtn = document.getElementById('generateBtn');
+        const manageGroupsBtn = document.getElementById('manageGroupsBtn');
+        const editModal = document.getElementById('editModal');
+        const closeModalBtn = document.getElementById('closeModalBtn');
+        const modalDateSpan = document.getElementById('modalDate');
+        const groupsContainer = document.getElementById('groupsContainer');
+        const userIdDisplay = document.getElementById('userIdDisplay');
+
+        const groupManagementModal = document.getElementById('groupManagementModal');
+        const closeGroupModalBtn = document.getElementById('closeGroupModalBtn');
+        const newGroupInput = document.getElementById('newGroupInput');
+        const addGroupBtn = document.getElementById('addGroupBtn');
+        const groupList = document.getElementById('groupList');
+        const weekToEdit = document.getElementById('weekToEdit');
+        const scheduleEditContainer = document.getElementById('scheduleEditContainer');
+        const saveFixedScheduleBtn = document.getElementById('saveFixedScheduleBtn');
+
+        const monthlyViewBtn = document.getElementById('monthlyViewBtn');
+        const weeklyViewBtn = document.getElementById('weeklyViewBtn');
+        const exportPdfBtn = document.getElementById('exportPdfBtn');
+        const weeklyNavigation = document.getElementById('weeklyNavigation');
+        const prevWeekBtn = document.getElementById('prevWeekBtn');
+        const nextWeekBtn = document.getElementById('nextWeekBtn');
+        const currentWeekDisplay = document.getElementById('currentWeekDisplay');
+
+        let selectedDate = null;
+        let currentMonthData = null;
+        let currentConfigData = { groups: [], fixedSchedule: {} };
+        let currentView = 'monthly';
+        let currentWeekIndex = 0;
+        let weeksInMonth = [];
+
+        window.onload = async function() {
+            if (Object.keys(firebaseConfig).length > 0) {
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+                
+                try {
+                    if (initialAuthToken) {
+                        await signInWithCustomToken(auth, initialAuthToken);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+                    userId = auth.currentUser.uid;
+                    userIdDisplay.textContent = `ID do Usuário: ${userId}`;
+                } catch (error) {
+                    console.error("Firebase Auth Error:", error);
+                    userIdDisplay.textContent = "Erro de autenticação. Por favor, recarregue a página.";
+                }
+            } else {
+                console.warn("Firebase config not provided. The app will run without persistence.");
+                userIdDisplay.textContent = "Rodando em modo local (sem persistência).";
+            }
+
+            // Populate year dropdown
+            const currentYear = new Date().getFullYear();
+            for (let i = currentYear - 5; i <= currentYear + 5; i++) {
+                const option = document.createElement('option');
+                option.value = i;
+                option.textContent = i;
+                yearSelect.appendChild(option);
+            }
+            yearSelect.value = currentYear;
+
+            // Set current month and year
+            const today = new Date();
+            monthSelect.value = today.getMonth();
+            yearSelect.value = today.getFullYear();
+            
+            // Populate week selector in Group Management Modal
+            weekNames.forEach((name, index) => {
+                const option = document.createElement('option');
+                option.value = index + 1;
+                option.textContent = name;
+                weekToEdit.appendChild(option);
+            });
+
+            // Listen for configuration changes
+            const configDocRef = db ? doc(collection(db, `/artifacts/${appId}/public/data/config`), 'schedule_config') : null;
+            if (configDocRef) {
+                 unsubscribeConfig = onSnapshot(configDocRef, (docSnap) => {
+                    const data = docSnap.exists() ? docSnap.data() : { groups: ['Grupo Santa Maria', 'Grupo São José', 'Grupo São Pedro', 'Grupo da Paz'], fixedSchedule: {} };
+                    groups = data.groups || [];
+                    fixedSchedule = data.fixedSchedule || {};
+                    // Generate schedule only after config data is loaded
+                    generateBtn.click();
+                 }, (error) => {
+                    console.error("Erro ao carregar configurações:", error);
+                 });
+            } else {
+                groups = ['Grupo Santa Maria', 'Grupo São José', 'Grupo São Pedro', 'Grupo da Paz'];
+                fixedSchedule = {}; // Initialize as empty for local mode
+                generateBtn.click();
+            }
+        };
+
+        // Event listeners
+        generateBtn.addEventListener('click', () => {
+            const year = yearSelect.value;
+            const month = monthSelect.value;
+            generateSchedule(year, month);
+        });
+
+        manageGroupsBtn.addEventListener('click', () => {
+            openGroupManagementModal();
+        });
+
+        closeModalBtn.addEventListener('click', () => {
+            editModal.classList.add('hidden');
+        });
+
+        closeGroupModalBtn.addEventListener('click', () => {
+            groupManagementModal.classList.add('hidden');
+        });
+        
+        addGroupBtn.addEventListener('click', () => {
+            const newGroupName = newGroupInput.value.trim();
+            if (newGroupName && !groups.includes(newGroupName)) {
+                groups.push(newGroupName);
+                saveConfigToFirestore();
+                newGroupInput.value = '';
+            }
+        });
+
+        weekToEdit.addEventListener('change', (e) => {
+            renderFixedScheduleEdit(e.target.value);
+        });
+
+        saveFixedScheduleBtn.addEventListener('click', async () => {
+            const week = weekToEdit.value;
+            const newWeekSchedule = {};
+            const selectElements = scheduleEditContainer.querySelectorAll('select');
+            
+            selectElements.forEach(select => {
+                const [day, time] = select.dataset.key.split('-');
+                if (!newWeekSchedule[day]) {
+                    newWeekSchedule[day] = {};
+                }
+                newWeekSchedule[day][time] = select.value;
+            });
+
+            fixedSchedule[week] = newWeekSchedule;
+            await saveConfigToFirestore();
+            groupManagementModal.classList.add('hidden');
+        });
+
+        // View Mode and Export Listeners
+        monthlyViewBtn.addEventListener('click', () => {
+            currentView = 'monthly';
+            monthlyViewBtn.classList.replace('bg-gray-400', 'bg-blue-500');
+            weeklyViewBtn.classList.replace('bg-blue-500', 'bg-gray-400');
+            weeklyNavigation.classList.add('hidden');
+            generateSchedule(yearSelect.value, monthSelect.value);
+        });
+
+        weeklyViewBtn.addEventListener('click', () => {
+            currentView = 'weekly';
+            monthlyViewBtn.classList.replace('bg-blue-500', 'bg-gray-400');
+            weeklyViewBtn.classList.replace('bg-gray-400', 'bg-blue-500');
+            weeklyNavigation.classList.remove('hidden');
+            currentWeekIndex = 0; // Reset to first week
+            generateWeeklyView();
+        });
+
+        prevWeekBtn.addEventListener('click', () => {
+            if (currentWeekIndex > 0) {
+                currentWeekIndex--;
+                generateWeeklyView();
+            }
+        });
+
+        nextWeekBtn.addEventListener('click', () => {
+            if (currentWeekIndex < weeksInMonth.length - 1) {
+                currentWeekIndex++;
+                generateWeeklyView();
+            }
+        });
+        
+        exportPdfBtn.addEventListener('click', () => {
+            exportScheduleToPDF();
+        });
+
+
+        // Main Schedule Functions
+        async function generateSchedule(year, month) {
+            if (unsubscribeMonth) {
+                unsubscribeMonth();
+            }
+            showLoading(true);
+            scheduleBody.innerHTML = '';
+            
+            const firstDayOfMonth = new Date(year, month, 1);
+            const lastDayOfMonth = new Date(year, parseInt(month) + 1, 0);
+
+            // Populate weeksInMonth array for weekly view navigation
+            weeksInMonth = getWeeksInMonth(firstDayOfMonth, lastDayOfMonth);
+
+            const monthId = `${year}-${String(parseInt(month) + 1).padStart(2, '0')}`;
+            const scheduleDocRef = db ? doc(collection(db, `/artifacts/${appId}/public/data/schedules`), monthId) : null;
+            
+            if (scheduleDocRef) {
+                unsubscribeMonth = onSnapshot(scheduleDocRef, (docSnap) => {
+                    currentMonthData = docSnap.exists() ? docSnap.data() : {};
+                    if (currentView === 'monthly') {
+                        renderMonthlySchedule(firstDayOfMonth, lastDayOfMonth, currentMonthData);
+                    } else {
+                        generateWeeklyView();
+                    }
+                    showLoading(false);
+                }, (error) => {
+                    console.error("Erro ao carregar dados do Firestore:", error);
+                    if (currentView === 'monthly') {
+                        renderMonthlySchedule(firstDayOfMonth, lastDayOfMonth, {});
+                    } else {
+                        generateWeeklyView();
+                    }
+                    showLoading(false);
+                });
+            } else {
+                 if (currentView === 'monthly') {
+                     renderMonthlySchedule(firstDayOfMonth, lastDayOfMonth, {});
+                 } else {
+                     generateWeeklyView();
+                 }
+                 showLoading(false);
+            }
+        }
+        
+        function getWeeksInMonth(firstDay, lastDay) {
+            const weeks = [];
+            let currentDay = new Date(firstDay);
+            let week = [];
+            
+            // Add leading empty cells
+            for (let i = 0; i < firstDay.getDay(); i++) {
+                week.push(null);
+            }
+            
+            while (currentDay <= lastDay) {
+                week.push(new Date(currentDay));
+                if (currentDay.getDay() === 6 || currentDay.getTime() === lastDay.getTime()) {
+                    weeks.push(week);
+                    week = [];
+                }
+                currentDay.setDate(currentDay.getDate() + 1);
+            }
+            return weeks;
+        }
+
+        function renderMonthlySchedule(firstDay, lastDay, scheduleData) {
+            scheduleBody.innerHTML = '';
+            let date = new Date(firstDay);
+            let week = [];
+            
+            // Add leading empty cells
+            for (let i = 0; i < firstDay.getDay(); i++) {
+                week.push(`<td class="p-3 empty"></td>`);
+            }
+
+            // Populate days of the month
+            while (date <= lastDay) {
+                const day = date.getDay();
+                const dayString = String(date.getDate()).padStart(2, '0');
+                const monthString = String(date.getMonth() + 1).padStart(2, '0');
+                const yearString = date.getFullYear();
+                const fullDate = `${yearString}-${monthString}-${dayString}`;
+                const today = new Date();
+                const isToday = date.getDate() === today.getDate() && date.getMonth() === today.getMonth() && date.getFullYear() === today.getFullYear();
+                
+                // Calculate week number of the month
+                const weekNumber = Math.ceil(date.getDate() / 7);
+                
+                let cellContent = '';
+                const times = massTimes[day] || [];
+                const defaultDaySchedule = fixedSchedule[weekNumber] ? fixedSchedule[weekNumber][day] || {} : {};
+                
+                times.forEach((time, index) => {
+                    const defaultGroup = defaultDaySchedule[time] || 'Sem Grupo';
+                    const group = scheduleData[fullDate] && scheduleData[fullDate][time] ? scheduleData[fullDate][time] : defaultGroup;
+
+                    cellContent += `
+                        <div class="flex flex-col items-center p-1 cursor-pointer hover:bg-gray-100 rounded-md" 
+                             data-date="${fullDate}" data-time="${time}" data-group="${group}" onclick="openModal('${fullDate}', '${time}', '${group}')">
+                            <span class="mass-time">${time}</span>
+                            <span class="group-name truncate">${group}</span>
+                        </div>
+                    `;
+                });
+
+                week.push(`
+                    <td class="day-cell p-2 ${isToday ? 'bg-blue-100' : 'bg-white'}">
+                        <div class="font-bold text-lg mb-2 text-center text-gray-800">${date.getDate()}</div>
+                        <div class="grid grid-cols-1 gap-1">
+                            ${cellContent}
+                        </div>
+                    </td>
+                `);
+
+                if (day === 6) { // End of the week
+                    scheduleBody.innerHTML += `<tr class="border-b border-gray-200">${week.join('')}</tr>`;
+                    week = [];
+                }
+
+                date.setDate(date.getDate() + 1);
+            }
+
+            // Add trailing empty cells
+            if (week.length > 0) {
+                for (let i = week.length; i < 7; i++) {
+                    week.push(`<td class="p-3 empty"></td>`);
+                }
+                scheduleBody.innerHTML += `<tr class="border-b border-gray-200">${week.join('')}</tr>`;
+            }
+        }
+        
+        function generateWeeklyView() {
+            scheduleBody.innerHTML = '';
+            const week = weeksInMonth[currentWeekIndex];
+            const weekNumberDisplay = weekNames[currentWeekIndex] || '';
+            currentWeekDisplay.textContent = weekNumberDisplay;
+
+            let row = '';
+            week.forEach(dayDate => {
+                if (dayDate) {
+                    const day = dayDate.getDay();
+                    const dayString = String(dayDate.getDate()).padStart(2, '0');
+                    const monthString = String(dayDate.getMonth() + 1).padStart(2, '0');
+                    const yearString = dayDate.getFullYear();
+                    const fullDate = `${yearString}-${monthString}-${dayString}`;
+                    const today = new Date();
+                    const isToday = dayDate.getDate() === today.getDate() && dayDate.getMonth() === today.getMonth() && dayDate.getFullYear() === today.getFullYear();
+                    const weekNumber = Math.ceil(dayDate.getDate() / 7);
+
+                    let cellContent = '';
+                    const times = massTimes[day] || [];
+                    const defaultDaySchedule = fixedSchedule[weekNumber] ? fixedSchedule[weekNumber][day] || {} : {};
+                    
+                    times.forEach((time) => {
+                        const defaultGroup = defaultDaySchedule[time] || 'Sem Grupo';
+                        const group = currentMonthData[fullDate] && currentMonthData[fullDate][time] ? currentMonthData[fullDate][time] : defaultGroup;
+
+                        cellContent += `
+                            <div class="flex flex-col items-center p-1 cursor-pointer hover:bg-gray-100 rounded-md" 
+                                 data-date="${fullDate}" data-time="${time}" data-group="${group}" onclick="openModal('${fullDate}', '${time}', '${group}')">
+                                <span class="mass-time">${time}</span>
+                                <span class="group-name truncate">${group}</span>
+                            </div>
+                        `;
+                    });
+
+                    row += `
+                        <td class="day-cell p-2 ${isToday ? 'bg-blue-100' : 'bg-white'}">
+                            <div class="font-bold text-lg mb-2 text-center text-gray-800">${dayDate.getDate()}</div>
+                            <div class="grid grid-cols-1 gap-1">
+                                ${cellContent}
+                            </div>
+                        </td>
+                    `;
+                } else {
+                    row += `<td class="p-3 empty"></td>`;
+                }
+            });
+            scheduleBody.innerHTML = `<tr class="border-b border-gray-200">${row}</tr>`;
+        }
+
+        window.openModal = function(date, time, currentGroup) {
+            selectedDate = date;
+            const [year, month, day] = date.split('-');
+            modalDateSpan.textContent = `${weekdays[new Date(date).getDay()]}, ${day}/${month}/${year} (${time})`;
+            
+            groupsContainer.innerHTML = '';
+            groups.forEach(group => {
+                const isActive = group === currentGroup;
+                const button = document.createElement('button');
+                button.textContent = group;
+                button.className = `group-button px-4 py-2 w-full rounded-full font-semibold ${isActive ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-800'}`;
+                button.addEventListener('click', () => saveEdit(date, time, group));
+                groupsContainer.appendChild(button);
+            });
+            
+            editModal.classList.remove('hidden');
+        };
+
+        async function saveEdit(date, time, newGroup) {
+            if (!db) {
+                console.error("Firestore não está inicializado. As alterações não serão salvas.");
+                return;
+            }
+
+            showLoading(true);
+            editModal.classList.add('hidden');
+            
+            const monthId = date.substring(0, 7); // YYYY-MM
+            const scheduleDocRef = doc(collection(db, `/artifacts/${appId}/public/data/schedules`), monthId);
+            const dateKey = date;
+
+            try {
+                const docSnap = await getDoc(scheduleDocRef);
+                let dataToUpdate = {};
+                if (docSnap.exists()) {
+                    dataToUpdate = docSnap.data();
+                }
+
+                // Ensure the date entry exists
+                if (!dataToUpdate[dateKey]) {
+                    dataToUpdate[dateKey] = {};
+                }
+                dataToUpdate[dateKey][time] = newGroup;
+
+                await setDoc(scheduleDocRef, dataToUpdate);
+                console.log("Alteração salva com sucesso!");
+
+            } catch (error) {
+                console.error("Erro ao salvar a alteração:", error);
+            }
+        }
+
+        // Group Management Functions
+        function openGroupManagementModal() {
+            renderGroupList();
+            renderFixedScheduleEdit(weekToEdit.value);
+            groupManagementModal.classList.remove('hidden');
+        }
+
+        function renderGroupList() {
+            groupList.innerHTML = '';
+            groups.forEach(group => {
+                const groupItem = document.createElement('div');
+                groupItem.className = 'flex justify-between items-center p-2 bg-gray-100 rounded-md';
+                groupItem.innerHTML = `
+                    <span class="text-gray-800">${group}</span>
+                    <button class="text-red-500 hover:text-red-700 font-semibold delete-group-btn" data-group="${group}">Excluir</button>
+                `;
+                groupList.appendChild(groupItem);
+            });
+            // Attach event listeners for delete buttons
+            document.querySelectorAll('.delete-group-btn').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const groupToRemove = e.target.dataset.group;
+                    groups = groups.filter(g => g !== groupToRemove);
+                    // Also remove from fixed schedule
+                    for (const week in fixedSchedule) {
+                        for (const day in fixedSchedule[week]) {
+                            for (const time in fixedSchedule[week][day]) {
+                                if (fixedSchedule[week][day][time] === groupToRemove) {
+                                    fixedSchedule[week][day][time] = 'Sem Grupo';
+                                }
+                            }
+                        }
+                    }
+                    saveConfigToFirestore();
+                });
+            });
+        }
+
+        function renderFixedScheduleEdit(weekNumber) {
+            scheduleEditContainer.innerHTML = '';
+            const weekSchedule = fixedSchedule[weekNumber] || {};
+            
+            weekdays.forEach((dayName, dayIndex) => {
+                const dayDiv = document.createElement('div');
+                dayDiv.className = 'border-b border-gray-200 pb-2 mb-2 last:border-b-0';
+                dayDiv.innerHTML = `<h5 class="text-md font-bold text-gray-800">${dayName}</h5>`;
+                
+                const times = massTimes[dayIndex] || [];
+                const dayTimesDiv = document.createElement('div');
+                dayTimesDiv.className = 'space-y-2 mt-2';
+                
+                times.forEach((time) => {
+                    const timeDiv = document.createElement('div');
+                    timeDiv.className = 'flex items-center space-x-4';
+                    
+                    const timeLabel = document.createElement('span');
+                    timeLabel.textContent = `Horário: ${time}`;
+                    timeLabel.className = 'font-semibold text-gray-700 w-24';
+
+                    const select = document.createElement('select');
+                    select.className = 'w-full p-2 border rounded-md';
+                    select.dataset.key = `${dayIndex}-${time}`;
+                    
+                    const emptyOption = document.createElement('option');
+                    emptyOption.value = 'Sem Grupo';
+                    emptyOption.textContent = 'Sem Grupo';
+                    select.appendChild(emptyOption);
+                    
+                    groups.forEach(group => {
+                        const option = document.createElement('option');
+                        option.value = group;
+                        option.textContent = group;
+                        if (weekSchedule[dayIndex] && weekSchedule[dayIndex][time] === group) {
+                            option.selected = true;
+                        }
+                        select.appendChild(option);
+                    });
+                    
+                    timeDiv.appendChild(timeLabel);
+                    timeDiv.appendChild(select);
+                    dayTimesDiv.appendChild(timeDiv);
+                });
+                dayDiv.appendChild(dayTimesDiv);
+                scheduleEditContainer.appendChild(dayDiv);
+            });
+        }
+        
+        async function saveConfigToFirestore() {
+            if (!db) {
+                console.error("Firestore não está inicializado. As alterações não serão salvas.");
+                return;
+            }
+            try {
+                const configDocRef = doc(collection(db, `/artifacts/${appId}/public/data/config`), 'schedule_config');
+                const configData = {
+                    groups: groups,
+                    fixedSchedule: fixedSchedule
+                };
+                await setDoc(configDocRef, configData);
+                console.log("Configurações salvas com sucesso!");
+                renderGroupList(); // Refresh group list in the modal
+            } catch (error) {
+                console.error("Erro ao salvar as configurações:", error);
+            }
+        }
+
+        function showLoading(show) {
+            loadingOverlay.classList.toggle('hidden', !show);
+        }
+
+        function exportScheduleToPDF() {
+            showLoading(true);
+            const scheduleTable = document.getElementById('scheduleTable');
+            const { jsPDF } = window.jspdf;
+            
+            const tableClone = scheduleTable.cloneNode(true);
+            tableClone.style.display = 'block';
+
+            html2canvas(tableClone, { scale: 2 }).then(canvas => {
+                const imgData = canvas.toDataURL('image/jpeg', 1.0);
+                const pdf = new jsPDF('p', 'mm', 'a4');
+                const imgWidth = 210; 
+                const pageHeight = 297;  
+                const imgHeight = (canvas.height * imgWidth) / canvas.width;
+                let heightLeft = imgHeight;
+                let position = 0;
+
+                pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+                heightLeft -= pageHeight;
+
+                while (heightLeft >= 0) {
+                    position = heightLeft - imgHeight;
+                    pdf.addPage();
+                    pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+                    heightLeft -= pageHeight;
+                }
+                
+                let filename = '';
+                if (currentView === 'monthly') {
+                    filename = `Escala_${monthSelect.options[monthSelect.selectedIndex].text}_${yearSelect.value}.pdf`;
+                } else {
+                    const weekStartDate = weeksInMonth[currentWeekIndex][0];
+                    const weekEndDate = weeksInMonth[currentWeekIndex][weeksInMonth[currentWeekIndex].length - 1];
+                    const startFormatted = `${String(weekStartDate.getDate()).padStart(2, '0')}-${String(weekStartDate.getMonth() + 1).padStart(2, '0')}`;
+                    const endFormatted = `${String(weekEndDate.getDate()).padStart(2, '0')}-${String(weekEndDate.getMonth() + 1).padStart(2, '0')}`;
+                    filename = `Escala_Semana_${startFormatted}_a_${endFormatted}_${yearSelect.value}.pdf`;
+                }
+                
+                pdf.save(filename);
+                showLoading(false);
+            }).catch(error => {
+                console.error("Erro ao gerar PDF:", error);
+                showLoading(false);
+            });
+        }
+    </script>
+</body>
+</html>
