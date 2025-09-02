@@ -213,15 +213,24 @@
         import { getFirestore, doc, getDoc, setDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // IMPORTANT: The global variables __firebase_config, __app_id, and __initial_auth_token are provided by the environment.
-        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-        const { jsPDF } = window.jspdf;
+        // IMPORTANTE: COLOQUE SEU FIREBASE CONFIG E APP ID AQUI!
+        // Copie o conteúdo da seção "Your apps" no console do Firebase e cole abaixo, substituindo as linhas de exemplo.
+        const firebaseConfig = {
+  apiKey: "AIzaSyBgYdHlxNnyaXL-JVxbCFCxcKsxKwvMvw4",
+  authDomain: "escalademusicos.firebaseapp.com",
+  projectId: "escalademusicos",
+  storageBucket: "escalademusicos.firebasestorage.app",
+  messagingSenderId: "758450934758",
+  appId: "1:758450934758:web:3531656b4bb77580e2bc27",
+  measurementId: "G-2CMVX7YM63"
+     };
+        const appId = 'escalademusicos';
 
+        const initialAuthToken = null;
+        
         // Firestore and Auth setup
         let app, db, auth;
-        let userId = 'anon'; // Default to 'anon' until authenticated
+        let userId = 'anon';
         let unsubscribeMonth = null;
         let unsubscribeConfig = null;
 
@@ -277,16 +286,37 @@
         let currentView = 'monthly';
         let currentWeekIndex = 0;
         let weeksInMonth = [];
+        
+        let firebaseConfig = null;
+        let localAppId = null;
 
         window.onload = async function() {
-            if (Object.keys(firebaseConfig).length > 0) {
+            // Check if firebase config exists (if not, runs in local mode)
+            if (typeof __firebase_config !== 'undefined' && __firebase_config !== null && __firebase_config.length > 0) {
+                firebaseConfig = JSON.parse(__firebase_config);
+                localAppId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+            }
+            
+            // Allow direct insertion for user
+            if (firebaseConfig === null) {
+                // If user has directly inserted the config, use it
+                try {
+                    firebaseConfig = eval("firebaseConfig"); // Using eval to get the object from the text
+                    localAppId = eval("appId");
+                } catch (e) {
+                    console.error("Firebase config not found. Running in local mode.");
+                }
+            }
+
+
+            if (firebaseConfig !== null && Object.keys(firebaseConfig).length > 0) {
                 app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
                 auth = getAuth(app);
                 
                 try {
-                    if (initialAuthToken) {
-                        await signInWithCustomToken(auth, initialAuthToken);
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await signInWithCustomToken(auth, __initial_auth_token);
                     } else {
                         await signInAnonymously(auth);
                     }
@@ -325,7 +355,7 @@
             });
 
             // Listen for configuration changes
-            const configDocRef = db ? doc(collection(db, `/artifacts/${appId}/public/data/config`), 'schedule_config') : null;
+            const configDocRef = db ? doc(collection(db, `/artifacts/${localAppId}/public/data/config`), 'schedule_config') : null;
             if (configDocRef) {
                  unsubscribeConfig = onSnapshot(configDocRef, (docSnap) => {
                     const data = docSnap.exists() ? docSnap.data() : { groups: ['Grupo Santa Maria', 'Grupo São José', 'Grupo São Pedro', 'Grupo da Paz'], fixedSchedule: {} };
@@ -445,7 +475,7 @@
             weeksInMonth = getWeeksInMonth(firstDayOfMonth, lastDayOfMonth);
 
             const monthId = `${year}-${String(parseInt(month) + 1).padStart(2, '0')}`;
-            const scheduleDocRef = db ? doc(collection(db, `/artifacts/${appId}/public/data/schedules`), monthId) : null;
+            const scheduleDocRef = db ? doc(collection(db, `/artifacts/${localAppId}/public/data/schedules`), monthId) : null;
             
             if (scheduleDocRef) {
                 unsubscribeMonth = onSnapshot(scheduleDocRef, (docSnap) => {
@@ -640,7 +670,7 @@
             editModal.classList.add('hidden');
             
             const monthId = date.substring(0, 7); // YYYY-MM
-            const scheduleDocRef = doc(collection(db, `/artifacts/${appId}/public/data/schedules`), monthId);
+            const scheduleDocRef = doc(collection(db, `/artifacts/${localAppId}/public/data/schedules`), monthId);
             const dateKey = date;
 
             try {
@@ -757,7 +787,7 @@
                 return;
             }
             try {
-                const configDocRef = doc(collection(db, `/artifacts/${appId}/public/data/config`), 'schedule_config');
+                const configDocRef = doc(collection(db, `/artifacts/${localAppId}/public/data/config`), 'schedule_config');
                 const configData = {
                     groups: groups,
                     fixedSchedule: fixedSchedule
